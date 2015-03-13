@@ -11,25 +11,16 @@ import (
 func main() {
 	sw := stopwatch.New()
 
-	file, err := os.Open("./shakes.txt")
-	check(err)
-	defer file.Close()
+	in := "./shakes.txt"
+	out := "./shakes_count.json"
+	limit := 0
+	caseSensitive := false
 
-	scanner := bufio.NewScanner(file)
-	limit := 10
-	current := 0
-	s := ""
-	for scanner.Scan() {
-		if current == limit {
-			break
-		}
-		s += fmt.Sprintln(scanner.Text())
-		current++
-	}
+	counts, lines := WordCountFile(in, limit, caseSensitive)
+	fmt.Printf("Lines read: %v\n", lines)
 
-	m := WordCountAlpha(s, false)
-	j := WordMapToJSON(m, true)
-	err = WriteJSONToFile(j, "./shakes_count.json")
+	j := WordMapToJSON(counts, true)
+	err := WriteJSONToFile(j, out)
 	check(err)
 
 	fmt.Println(sw)
@@ -41,51 +32,47 @@ func check(err error) {
 	}
 }
 
-func WordCount(str string) map[string]int {
-	m := make(map[string]int)
-	wordBreaks := []rune(" ,.;:!?\n\t(){}[]")
+func WordCountFile(path string, limit int, caseSensitive bool) (map[string]int, int) {
+	file, err := os.Open(path)
+	check(err)
+	defer file.Close()
 
-	var buf [2048]rune
-	i := 0
-	for _, c := range str {
-		if hasChar(wordBreaks, c) {
-			if i > 0 {
-				m[string(buf[:i])]++
-				i = 0
-			} else {
-				continue
-			}
-		} else {
-			buf[i] = c
-			i++
+	scanner := bufio.NewScanner(file)
+	current := 0
+	s := ""
+	for scanner.Scan() {
+		if limit > 0 && current == limit {
+			break
 		}
+		s += fmt.Sprintln(scanner.Text())
+		current++
 	}
-	return m
-}
 
-func hasChar(chars []rune, c rune) bool {
-	for _, r := range chars {
-		if c == r {
-			return true
-		}
-	}
-	return false
+	return WordCount(s, caseSensitive), current
 }
 
 // Word count, alphabetic characters only
 // str: The string of text to be word-counted
 // caseSensitive: If false, all letters are downcased
-func WordCountAlpha(str string, caseSensitive bool) map[string]int {
+// return: a map of the words and counts
+func WordCount(str string, caseSensitive bool) map[string]int {
 	m := make(map[string]int)
 
 	var buf [2048]rune
 	i := 0
 	for _, c := range str {
-		if c >= 65 && c <= 90 {
-			if caseSensitive {
-				buf[i] = c + 32
+		if c == 39 {
+			if i == 0 {
+				continue
 			} else {
 				buf[i] = c
+				i++
+			}
+		} else if c >= 65 && c <= 90 {
+			if caseSensitive {
+				buf[i] = c
+			} else {
+				buf[i] = c + 32
 			}
 			i++
 		} else if c >= 97 && c <= 122 {
