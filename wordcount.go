@@ -21,14 +21,14 @@ func main() {
 	limit := 0
 	caseSensitive := false
 
-	lines := ReadLines(&in, limit)
-	fmt.Printf("Lines read: %v lines %v\n", limit, sw)
+	lines, linesRead := ReadLines(in, limit)
+	fmt.Printf("Lines read: %v lines %v\n", linesRead, sw)
 
 	counts := WordCount(lines, caseSensitive)
 	fmt.Printf("Words counted: %v\n", sw)
 
-	j := WordMapToJSON(&counts, true)
-	err = WriteJSONToFile(j, &out)
+	j := WordMapToJSON(counts, true)
+	err = WriteJSONToFile(j, out)
 	check(err)
 	fmt.Printf("JSON parsed and written to file: %v\n", sw)
 }
@@ -42,8 +42,8 @@ func check(err error) {
 // Reads lines until EOF or the limit is reached and returns them as a string
 // path: string path of the file to be read
 // limit: maximum number of lines to be read, 0 or -1 will read all lines
-func ReadLines(path *string, limit int) *string {
-	file, err := os.Open(*path)
+func ReadLines(path string, limit int) (string, int) {
+	file, err := os.Open(path)
 	check(err)
 	defer file.Close()
 
@@ -60,19 +60,19 @@ func ReadLines(path *string, limit int) *string {
 	}
 
 	contents := string(fileBuffer)
-	return &contents
+	return contents, current
 }
 
 // Word count, alphabetic characters only
 // str: The string of text to be word-counted
 // caseSensitive: If false, all letters are downcased
 // return: a map of the words and counts
-func WordCount(str *string, caseSensitive bool) map[string]int {
+func WordCount(str string, caseSensitive bool) map[string]int {
 	m := make(map[string]int, 27000)
 
 	var buf [1024]rune
 	i := 0
-	for _, c := range *str {
+	for _, c := range str {
 		if c == 39 {
 			if i == 0 {
 				continue
@@ -101,7 +101,7 @@ func WordCount(str *string, caseSensitive bool) map[string]int {
 	return m
 }
 
-func WordMapToJSON(m *map[string]int, humanReadable bool) []byte {
+func WordMapToJSON(m map[string]int, humanReadable bool) []byte {
 	var j []byte
 	var err error
 	if humanReadable {
@@ -114,8 +114,8 @@ func WordMapToJSON(m *map[string]int, humanReadable bool) []byte {
 	return j
 }
 
-func WriteJSONToFile(js []byte, path *string) error {
-	file, err := os.Create(*path)
+func WriteJSONToFile(js []byte, path string) error {
+	file, err := os.Create(path)
 	if err != nil {
 		return err
 	}
