@@ -4,12 +4,18 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/davecheney/profile"
 	"github.com/odysseus/stopwatch"
 	"os"
 )
 
+var err error
+
 func main() {
-	sw := stopwatch.New()
+	defer profile.Start(profile.CPUProfile).Stop()
+
+	sw := stopwatch.Start()
+	defer fmt.Println(sw)
 
 	in := "./shakes.txt"
 	out := "./shakes_count.json"
@@ -18,12 +24,11 @@ func main() {
 
 	counts, lines := WordCountFile(in, limit, caseSensitive)
 	fmt.Printf("Lines read: %v\n", lines)
+	fmt.Println(sw)
 
 	j := WordMapToJSON(counts, true)
-	err := WriteJSONToFile(j, out)
+	err = WriteJSONToFile(j, out)
 	check(err)
-
-	fmt.Println(sw)
 }
 
 func check(err error) {
