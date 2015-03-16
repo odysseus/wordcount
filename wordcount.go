@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/davecheney/profile"
 	"github.com/odysseus/stopwatch"
 	"log"
 	"os"
@@ -12,87 +13,124 @@ import (
 )
 
 var caseSensitive bool
+var quiet bool
 var silent bool
-var limit int
+var outname string
 var outpath string
 
 func init() {
-	flag.IntVar(&limit, "limit", 0, "Maximum number of lines to read")
-	flag.BoolVar(&caseSensitive, "case-sensitive", false,
-		"Sets word count to case sensitive")
-	flag.BoolVar(&caseSensitive, "cs", false,
-		"Sets word count to case sensitive (shorthand)")
-	flag.BoolVar(&silent, "s", false, "Suppresses verbose output")
-	flag.BoolVar(&silent, "silent", false, "Suppresses verbose output")
-	flag.StringVar(&outpath, "out", "wordcount.json", "Name of the outputted file")
+	flag.BoolVar(&caseSensitive, "case-sensitive", false, "Sets word count to case sensitive")
+	flag.BoolVar(&caseSensitive, "cs", false, "Sets word count to case sensitive (shorthand)")
+
+	flag.BoolVar(&quiet, "quiet", false, "Suppresses verbose output")
+	flag.BoolVar(&quiet, "q", false, "Suppresses verbose output")
+
+	flag.BoolVar(&silent, "silent", false, "Suppresses ALL stdout output of the program")
+	flag.BoolVar(&silent, "s", false, "Suppresses ALL stdout output of the program")
+
+	flag.StringVar(&outname, "name", "wordcount.json", "Name of the outputted file")
+	flag.StringVar(&outname, "n", "wordcount.json", "Name of the outputted file")
+
+	flag.StringVar(&outpath, "path", "./", "Alternate path for output files")
+	flag.StringVar(&outpath, "p", "./", "Alternate path for output files")
 }
 
 func main() {
+	defer profile.Start(profile.CPUProfile).Stop()
+	tot := stopwatch.Start()
 	flag.Parse()
+	// The silent flag also sets the quiet flag
+	if silent {
+		quiet = true
+	}
+	// Args contains the filenames to be processed
 	args := flag.Args()
 	nargs := len(args)
 	if nargs == 0 {
 		log.Fatal("Error: Missing input file")
-	} else if nargs > 1 && outpath != "wordcount.json" {
+	} else if nargs > 1 && outname != "wordcount.json" {
 		log.Fatal("Error: output file can only be specified when running on a single file")
 	}
 
 	success := 0
 	fail := 0
+	if !quiet {
+		fmt.Println()
+	}
 
+	// Now process each filename passed
 	for i, v := range args {
 		sw := stopwatch.Start()
 
+		// Get the input filepath
 		in, err := filepath.Abs(v)
 		if err != nil {
-			if !silent {
+			if !quiet {
 				fmt.Println(failMsg(err, i+1, nargs))
 			}
 			fail++
 			continue
 		}
 
-		out := fmt.Sprintf("%v_counts.json", FilenameSansExt(in))
+		// If successful create the output filename
+		var out string
+		if outname == "wordcount.json" {
+			name := fmt.Sprintf("%v_counts.json", RawFilename(in))
+			out = filepath.Join(outpath, name)
+		} else {
+			out = filepath.Join(outpath, outname)
+		}
 
-		lines, linesRead, err := ReadLines(in, limit)
+		// Read the file
+		lines, linesRead, err := ReadLines(in)
 		if err != nil {
-			if !silent {
+			if !quiet {
 				fmt.Println(failMsg(err, i+1, nargs))
 			}
 			fail++
 			continue
 		}
 
+		// Count the words
 		counts, totalWords := WordCount(lines, caseSensitive)
 		uniqueWords := len(counts)
 
+		// Convert to JSON
 		j, err := WordMapToJSON(counts, true)
 		if err != nil {
-			if !silent {
+			if !quiet {
 				fmt.Println(failMsg(err, i+1, nargs))
 			}
 			fail++
 			continue
 		}
 
+		// Write that to the output file
 		err = WriteJSONToFile(j, out)
 		if err != nil {
-			if !silent {
+			if !quiet {
 				fmt.Println(failMsg(err, i+1, nargs))
 			}
 			fail++
 			continue
 		}
 
+		// Register success
 		success++
 
-		if !silent {
-			infile, outfile := filepath.Base(in), filepath.Base(out)
+		// Output success message with summary statistics about the file
+		if !quiet {
+			infile, outfile := filepath.Clean(in), filepath.Clean(out)
 			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nLines: %v  Words: %v  Unique: %v\nTook: %v\n----------------\n",
 				i+1, nargs, infile, outfile, linesRead, totalWords, uniqueWords, sw)
 		}
 	}
-	fmt.Printf("%v Completed. %v Failed. %v Total\n", success, fail, nargs)
+	// On completion output the number of successes and failures, this still
+	// runs in --quiet mode but not in --silent mode
+	if !silent {
+		fmt.Printf("%v Completed. %v Failed. %v Total. Took: %v\n",
+			success, fail, nargs, tot)
+	}
 }
 
 func failMsg(err error, current, total int) string {
@@ -100,20 +138,21 @@ func failMsg(err error, current, total int) string {
 		current, total, err.Error())
 }
 
-// Removes the filetype extension from a filename
-func FilenameSansExt(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '.' {
-			return path[:i]
+// Returns the raw filename with no path and no extension
+func RawFilename(path string) string {
+	_, file := filepath.Split(path)
+	for i := len(file) - 1; i >= 0; i-- {
+		if file[i] == '.' {
+			return file[:i]
 		}
 	}
-	return path
+	return file
 }
 
 // Reads lines until EOF or the limit is reached and returns them as a string
 // path: string path of the file to be read
 // limit: maximum number of lines to be read, 0 or -1 will read all lines
-func ReadLines(path string, limit int) (string, int, error) {
+func ReadLines(path string) (string, int, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", 0, err
@@ -125,9 +164,6 @@ func ReadLines(path string, limit int) (string, int, error) {
 	fileBuffer := make([]rune, 4096)
 
 	for scanner.Scan() {
-		if limit > 0 && current == limit {
-			break
-		}
 		fileBuffer = append(fileBuffer, []rune(fmt.Sprintln(scanner.Text()))...)
 		current++
 	}
