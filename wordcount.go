@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/davecheney/profile"
 	"github.com/odysseus/stopwatch"
 	"os"
 )
@@ -12,8 +11,6 @@ import (
 var err error
 
 func main() {
-	defer profile.Start(profile.CPUProfile).Stop()
-
 	sw := stopwatch.Start()
 
 	in := "./shakes.txt"
@@ -22,15 +19,15 @@ func main() {
 	caseSensitive := false
 
 	lines, linesRead := ReadLines(in, limit)
-	fmt.Printf("Lines read: %v lines %v\n", linesRead, sw)
 
-	counts := WordCount(lines, caseSensitive)
-	fmt.Printf("Words counted: %v\n", sw)
+	counts, totalWords := WordCount(lines, caseSensitive)
 
 	j := WordMapToJSON(counts, true)
 	err = WriteJSONToFile(j, out)
 	check(err)
-	fmt.Printf("JSON parsed and written to file: %v\n", sw)
+
+	fmt.Printf("Completed.\nInput: %s --> Output: %s\nLines: %v  Words: %v  Took: %v\n",
+		in, out, linesRead, totalWords, sw)
 }
 
 func check(err error) {
@@ -49,7 +46,7 @@ func ReadLines(path string, limit int) (string, int) {
 
 	scanner := bufio.NewScanner(file)
 	current := 0
-	fileBuffer := make([]rune, 8192)
+	fileBuffer := make([]rune, 4096)
 
 	for scanner.Scan() {
 		if limit > 0 && current == limit {
@@ -67,11 +64,12 @@ func ReadLines(path string, limit int) (string, int) {
 // str: The string of text to be word-counted
 // caseSensitive: If false, all letters are downcased
 // return: a map of the words and counts
-func WordCount(str string, caseSensitive bool) map[string]int {
-	m := make(map[string]int, 27000)
+func WordCount(str string, caseSensitive bool) (map[string]int, int) {
+	m := make(map[string]int, 4096)
 
 	var buf [1024]rune
 	i := 0
+	total := 0
 	for _, c := range str {
 		if c == 39 {
 			if i == 0 {
@@ -92,13 +90,14 @@ func WordCount(str string, caseSensitive bool) map[string]int {
 			i++
 		} else if i > 0 {
 			m[string(buf[:i])]++
+			total++
 			i = 0
 		} else {
 			continue
 		}
 	}
 
-	return m
+	return m, total
 }
 
 func WordMapToJSON(m map[string]int, humanReadable bool) []byte {
