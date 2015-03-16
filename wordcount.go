@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/davecheney/profile"
 	"github.com/odysseus/stopwatch"
 	"log"
 	"os"
@@ -36,7 +35,6 @@ func init() {
 }
 
 func main() {
-	defer profile.Start(profile.CPUProfile).Stop()
 	tot := stopwatch.Start()
 	flag.Parse()
 	// The silent flag also sets the quiet flag
