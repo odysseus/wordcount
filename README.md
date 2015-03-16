@@ -4,15 +4,15 @@ Reads a file and counts unique words and their number of occurrences. Outputs a 
 
 ### Options
 
-- `--case-sensitive`/`-cs`: Setting either flag turns on case sensitive matching.
-- `--quiet`/`-q`: Suppresses the verbose, file by file output.
-- `--silent`/`-s`: Suppresses all STDOUT output of the program.
-- `--name`/`-n`: Supply an alternate output file, this can be a different path, it does not append `.json` or anything else to the filename.
-- `--path`/`-p`: Supplies an alternate path to store the output files in, this *will* work with multiple input files.
+- `--case-sensitive` / `-cs`: Setting either flag turns on case sensitive matching.
+- `--quiet` / `-q`: Suppresses the verbose, file by file output.
+- `--silent` / `-s`: Suppresses all STDOUT output of the program.
+- `--name` / `-n`: Supply an alternate output file, this can be a different path, it does not append `.json` or anything else to the filename.
+- `--path` / `-p`: Supplies an alternate path to store the output files in, this *will* work with multiple input files.
 
 ### Example Usage
 
-Single file, no options
+**Single file, no options:**
 ```bash
 $ wordcount shakes.txt
 
@@ -23,7 +23,7 @@ Took: 0m 0s 569.478ms
 1 Completed. 0 Failed. 1 Total. Took: 0m 0s 567.55ms
 ```
 
-Alternate output file:
+**Alternate output file:**
 ```bash
 $ wordcount --out bard.json shakes.txt
 
@@ -34,7 +34,7 @@ Took: 0m 0s 583.765ms
 1 Completed. 0 Failed. 1 Total. Took: 0m 0s 567.55ms
 ```
 
-Multiple files:
+**Multiple files:**
 ```bash
 $ wordcount shakes.txt jabberwocky.txt hollow_men.txt
 
@@ -53,7 +53,7 @@ Took: 0m 0s 0.791ms
 3 Completed. 0 Failed. 3 Total. Took: 0m 0s 564.517ms
 ```
 
-Multiple files/ Alternate path:
+**Multiple files/ Alternate path:**
 ```bash
 $ wordcount --path json/ *.txt
 
@@ -72,13 +72,13 @@ Took: 0m 0s 554.698ms
 3 Completed. 0 Failed. 3 Total. Took: 0m 0s 558.760ms
 ```
 
-Quiet
+**Quiet:**
 ```bash
 $ wordcount --quiet *.txt
 3 Completed. 0 Failed. 3 Total. Took: 0m 0s 563.535ms
 ```
 
-Silent
+**Silent:**
 ```bash
 $ wordcount --silent *.txt
 ```
