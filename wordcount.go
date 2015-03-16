@@ -49,7 +49,7 @@ func main() {
 	if nargs == 0 {
 		log.Fatal("Error: Missing input file")
 	} else if nargs > 1 && outname != "wordcount.json" {
-		log.Fatal("Error: output file can only be specified when running on a single file")
+		log.Fatal("Error: output file name can only be specified when running on a single file")
 	}
 
 	success := 0
@@ -120,9 +120,10 @@ func main() {
 
 		// Output success message with summary statistics about the file
 		if !quiet {
-			infile, outfile := filepath.Clean(in), filepath.Clean(out)
+			cwd, _ := os.Getwd()
+			infile, _ := filepath.Rel(cwd, in)
 			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nLines: %v  Words: %v  Unique: %v\nTook: %v\n----------------\n",
-				i+1, nargs, infile, outfile, linesRead, totalWords, uniqueWords, sw)
+				i+1, nargs, infile, out, linesRead, totalWords, uniqueWords, sw)
 		}
 	}
 	// On completion output the number of successes and failures, this still
