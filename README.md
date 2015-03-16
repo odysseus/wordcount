@@ -2,6 +2,15 @@
 
 Reads a file and counts unique words and their number of occurrences. Outputs a JSON file of that information to the current directory. Currently set up for English characters, but alphabet-specific tuning can be easily accomplished by modifying the `if/else` statement in `WordCount`.
 
+## Installation
+First ensure that Go is installed, and your `$GOPATH` and `$GOBIN` are properly set, then simply run:
+
+```bash
+$ go install github.com/odysseus/wordcount
+```
+
+From the command line.
+
 ### Options
 
 - `--case-sensitive` / `-cs`: Setting either flag turns on case sensitive matching.
