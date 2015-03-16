@@ -3,45 +3,121 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/odysseus/stopwatch"
+	"log"
 	"os"
+	"path/filepath"
 )
 
-var err error
+var caseSensitive bool
+var silent bool
+var limit int
+var outpath string
 
-func main() {
-	sw := stopwatch.Start()
-
-	in := "./shakes.txt"
-	out := "./shakes_count.json"
-	limit := 0
-	caseSensitive := false
-
-	lines, linesRead := ReadLines(in, limit)
-
-	counts, totalWords := WordCount(lines, caseSensitive)
-
-	j := WordMapToJSON(counts, true)
-	err = WriteJSONToFile(j, out)
-	check(err)
-
-	fmt.Printf("Completed.\nInput: %s --> Output: %s\nLines: %v  Words: %v  Took: %v\n",
-		in, out, linesRead, totalWords, sw)
+func init() {
+	flag.IntVar(&limit, "limit", 0, "Maximum number of lines to read")
+	flag.BoolVar(&caseSensitive, "case-sensitive", false,
+		"Sets word count to case sensitive")
+	flag.BoolVar(&caseSensitive, "cs", false,
+		"Sets word count to case sensitive (shorthand)")
+	flag.BoolVar(&silent, "s", false, "Suppresses verbose output")
+	flag.BoolVar(&silent, "silent", false, "Suppresses verbose output")
+	flag.StringVar(&outpath, "out", "wordcount.json", "Name of the outputted file")
 }
 
-func check(err error) {
-	if err != nil {
-		panic(err)
+func main() {
+	flag.Parse()
+	args := flag.Args()
+	nargs := len(args)
+	if nargs == 0 {
+		log.Fatal("Error: Missing input file")
+	} else if nargs > 1 && outpath != "wordcount.json" {
+		log.Fatal("Error: output file can only be specified when running on a single file")
 	}
+
+	success := 0
+	fail := 0
+
+	for i, v := range args {
+		sw := stopwatch.Start()
+
+		in, err := filepath.Abs(v)
+		if err != nil {
+			if !silent {
+				fmt.Println(failMsg(err, i+1, nargs))
+			}
+			fail++
+			continue
+		}
+
+		out := fmt.Sprintf("%v_counts.json", FilenameSansExt(in))
+
+		lines, linesRead, err := ReadLines(in, limit)
+		if err != nil {
+			if !silent {
+				fmt.Println(failMsg(err, i+1, nargs))
+			}
+			fail++
+			continue
+		}
+
+		counts, totalWords := WordCount(lines, caseSensitive)
+		uniqueWords := len(counts)
+
+		j, err := WordMapToJSON(counts, true)
+		if err != nil {
+			if !silent {
+				fmt.Println(failMsg(err, i+1, nargs))
+			}
+			fail++
+			continue
+		}
+
+		err = WriteJSONToFile(j, out)
+		if err != nil {
+			if !silent {
+				fmt.Println(failMsg(err, i+1, nargs))
+			}
+			fail++
+			continue
+		}
+
+		success++
+
+		if !silent {
+			infile, outfile := filepath.Base(in), filepath.Base(out)
+			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nLines: %v  Words: %v  Unique: %v\nTook: %v\n----------------\n",
+				i+1, nargs, infile, outfile, linesRead, totalWords, uniqueWords, sw)
+		}
+	}
+	fmt.Printf("%v Completed. %v Failed. %v Total\n", success, fail, nargs)
+}
+
+func failMsg(err error, current, total int) string {
+	return fmt.Sprintf("Failed %v of %v: %s\n----------------\n",
+		current, total, err.Error())
+}
+
+// Removes the filetype extension from a filename
+func FilenameSansExt(path string) string {
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '.' {
+			return path[:i]
+		}
+	}
+	return path
 }
 
 // Reads lines until EOF or the limit is reached and returns them as a string
 // path: string path of the file to be read
 // limit: maximum number of lines to be read, 0 or -1 will read all lines
-func ReadLines(path string, limit int) (string, int) {
+func ReadLines(path string, limit int) (string, int, error) {
 	file, err := os.Open(path)
-	check(err)
+	if err != nil {
+		return "", 0, err
+	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -57,7 +133,7 @@ func ReadLines(path string, limit int) (string, int) {
 	}
 
 	contents := string(fileBuffer)
-	return contents, current
+	return contents, current, nil
 }
 
 // Word count, alphabetic characters only
@@ -100,7 +176,8 @@ func WordCount(str string, caseSensitive bool) (map[string]int, int) {
 	return m, total
 }
 
-func WordMapToJSON(m map[string]int, humanReadable bool) []byte {
+// Converts a map into JSON with the option to output as human-readable with indents
+func WordMapToJSON(m map[string]int, humanReadable bool) ([]byte, error) {
 	var j []byte
 	var err error
 	if humanReadable {
@@ -108,11 +185,15 @@ func WordMapToJSON(m map[string]int, humanReadable bool) []byte {
 	} else {
 		j, err = json.Marshal(m)
 	}
-	check(err)
+	if err != nil {
+		return nil, err
+	}
 
-	return j
+	return j, nil
 }
 
+// Takes a byte slice of JSON and the string path of the file to be written to.
+// Opens, writes, and then closes the file
 func WriteJSONToFile(js []byte, path string) error {
 	file, err := os.Create(path)
 	if err != nil {
