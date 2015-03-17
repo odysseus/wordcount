@@ -3,15 +3,17 @@
 Reads a file and counts unique words and their number of occurrences. Outputs a JSON file of that information to the current directory. Currently set up for English characters, but alphabet-specific tuning can be easily accomplished by modifying the `if/else` statement in `WordCount`.
 
 ## Installation
-First ensure that Go is installed, and your `$GOPATH` and `$GOBIN` are properly set, then simply run:
+First ensure that Go is installed, and your `$GOPATH` and `$GOBIN` are properly set. Go can be installed easily with homebrew using `brew install go` and help on setting the environment variables can be found: [here](https://golang.org/doc/code.html).
+
+Once that's done you simply need to run:
 
 ```bash
-$ go install github.com/odysseus/wordcount
+$ go get github.com/odysseus/wordcount
 ```
 
-From the command line.
+From any command line
 
-### Options
+## Options
 
 - `--case-sensitive` / `-cs`: Setting either flag turns on case sensitive matching.
 - `--quiet` / `-q`: Suppresses the verbose, file by file output.
@@ -19,7 +21,7 @@ From the command line.
 - `--name` / `-n`: Supply an alternate output file, this can be a different path, it does not append `.json` or anything else to the filename.
 - `--path` / `-p`: Supplies an alternate path to store the output files in, this *will* work with multiple input files.
 
-### Example Usage
+## Example Usage
 
 **Single file, no options:**
 ```bash
