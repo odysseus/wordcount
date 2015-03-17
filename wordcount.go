@@ -59,84 +59,25 @@ func main() {
 
 	// Now process each filename passed
 	for i, v := range args {
-		sw := stopwatch.Start()
-
-		// Get the input filepath
-		in, err := filepath.Abs(v)
+		msg, err := processFile(v, i+1, nargs)
 		if err != nil {
 			if !quiet {
-				fmt.Println(failMsg(err, i+1, nargs))
+				fmt.Print(msg)
 			}
 			fail++
 			continue
 		}
-
-		// If successful create the output filename
-		var out string
-		if outname == "wordcount.json" {
-			name := fmt.Sprintf("%v_counts.json", RawFilename(in))
-			out = filepath.Join(outpath, name)
-		} else {
-			out = filepath.Join(outpath, outname)
-		}
-
-		// Read the file and wrap it in a scanner
-		infile, err := os.Open(in)
-		if err != nil {
-			if !quiet {
-				fmt.Println(failMsg(err, i+1, nargs))
-			}
-			fail++
-			continue
-		}
-		scanner := bufio.NewScanner(infile)
-
-		// Count the words
-		counts, totalWords := WordCount(scanner, caseSensitive)
-		uniqueWords := len(counts)
-
-		// Convert to JSON
-		j, err := WordMapToJSON(counts, true)
-		if err != nil {
-			if !quiet {
-				fmt.Println(failMsg(err, i+1, nargs))
-			}
-			fail++
-			continue
-		}
-
-		// Write that to the output file
-		err = WriteJSONToFile(j, out)
-		if err != nil {
-			if !quiet {
-				fmt.Println(failMsg(err, i+1, nargs))
-			}
-			fail++
-			continue
-		}
-
-		// Register success
 		success++
 
-		// Output success message with summary statistics about the file
-		if !quiet {
-			cwd, _ := os.Getwd()
-			infile, _ := filepath.Rel(cwd, in)
-			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nWords: %v  Unique: %v\nTook: %v\n----------------\n",
-				i+1, nargs, infile, out, totalWords, uniqueWords, sw)
-		}
+		fmt.Print(msg)
 	}
+
 	// On completion output the number of successes and failures, this still
 	// runs in --quiet mode but not in --silent mode
 	if !silent {
 		fmt.Printf("%v Completed. %v Failed. %v Total. Took: %v\n",
 			success, fail, nargs, tot)
 	}
-}
-
-func failMsg(err error, current, total int) string {
-	return fmt.Sprintf("Failed %v of %v: %s\n----------------\n",
-		current, total, err.Error())
 }
 
 // Returns the raw filename with no path and no extension
@@ -243,4 +184,59 @@ func WriteJSONToFile(js []byte, path string) error {
 	}
 
 	return nil
+}
+
+func failMsg(err error, current, total int) string {
+	return fmt.Sprintf("Failed %v of %v: %s\n----------------\n",
+		current, total, err.Error())
+}
+
+func processFile(path string, n, total int) (string, error) {
+	sw := stopwatch.Start()
+
+	// Get the input filepath
+	in, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	// If successful create the output filename
+	var out string
+	if outname == "wordcount.json" {
+		name := fmt.Sprintf("%v_counts.json", RawFilename(in))
+		out = filepath.Join(outpath, name)
+	} else {
+		out = filepath.Join(outpath, outname)
+	}
+
+	// Read the file and wrap it in a scanner
+	infile, err := os.Open(in)
+	if err != nil {
+		return failMsg(err, n, total), err
+	}
+	scanner := bufio.NewScanner(infile)
+
+	// Count the words
+	counts, totalWords := WordCount(scanner, caseSensitive)
+	uniqueWords := len(counts)
+
+	// Convert to JSON
+	j, err := WordMapToJSON(counts, true)
+	if err != nil {
+		return failMsg(err, n, total), err
+	}
+
+	// Write that to the output file
+	err = WriteJSONToFile(j, out)
+	if err != nil {
+		return failMsg(err, n, total), err
+	}
+
+	// Output success message with summary statistics about the file
+	cwd, _ := os.Getwd()
+	infilename, _ := filepath.Rel(cwd, in)
+	msg := fmt.Sprintf("Completed %v of %v. Input: %s --> Output: %s\nWords: %v  Unique: %v\nTook: %v\n----------------\n",
+		n, total, infilename, out, totalWords, uniqueWords, sw)
+
+	return msg, nil
 }
