@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var caseSensitive bool
@@ -79,8 +80,8 @@ func main() {
 			out = filepath.Join(outpath, outname)
 		}
 
-		// Read the file
-		lines, linesRead, err := ReadLines(in)
+		// Read the file and wrap it in a scanner
+		infile, err := os.Open(in)
 		if err != nil {
 			if !quiet {
 				fmt.Println(failMsg(err, i+1, nargs))
@@ -88,9 +89,10 @@ func main() {
 			fail++
 			continue
 		}
+		scanner := bufio.NewScanner(infile)
 
 		// Count the words
-		counts, totalWords := WordCount(lines, caseSensitive)
+		counts, totalWords := WordCount(scanner, caseSensitive)
 		uniqueWords := len(counts)
 
 		// Convert to JSON
@@ -120,8 +122,8 @@ func main() {
 		if !quiet {
 			cwd, _ := os.Getwd()
 			infile, _ := filepath.Rel(cwd, in)
-			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nLines: %v  Words: %v  Unique: %v\nTook: %v\n----------------\n",
-				i+1, nargs, infile, out, linesRead, totalWords, uniqueWords, sw)
+			fmt.Printf("Completed %v of %v. Input: %s --> Output: %s\nWords: %v  Unique: %v\nTook: %v\n----------------\n",
+				i+1, nargs, infile, out, totalWords, uniqueWords, sw)
 		}
 	}
 	// On completion output the number of successes and failures, this still
@@ -148,67 +150,66 @@ func RawFilename(path string) string {
 	return file
 }
 
-// Reads lines until EOF or the limit is reached and returns them as a string
-// path: string path of the file to be read
-// limit: maximum number of lines to be read, 0 or -1 will read all lines
-func ReadLines(path string) (string, int, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", 0, err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	current := 0
-	fileBuffer := make([]rune, 4096)
-
+func WordCount(scanner *bufio.Scanner, caseSensitive bool) (map[string]int, int) {
+	scanner.Split(bufio.ScanWords)
+	m := make(map[string]int, 4096)
+	total := 0
 	for scanner.Scan() {
-		fileBuffer = append(fileBuffer, []rune(fmt.Sprintln(scanner.Text()))...)
-		current++
+		var word string
+		if caseSensitive {
+			word = scrubWord(scanner.Text())
+		} else {
+			word = scrubWord(strings.ToLower(scanner.Text()))
+		}
+
+		m[word]++
+		total++
 	}
 
-	contents := string(fileBuffer)
-	return contents, current, nil
+	// Unparseable words are stored as an empty string so we remove that
+	delete(m, "")
+	return m, total
 }
 
-// Word count, alphabetic characters only
-// str: The string of text to be word-counted
-// caseSensitive: If false, all letters are downcased
-// return: a map of the words and counts
-func WordCount(str string, caseSensitive bool) (map[string]int, int) {
-	m := make(map[string]int, 4096)
-
-	var buf [1024]rune
+// Takes a word token and strips non alphabetic characters from the
+// beginning and end of the word
+func scrubWord(s string) string {
+	minAlpha := 0
+	maxAlpha := 0
+	anyAlpha := false
 	i := 0
-	total := 0
-	for _, c := range str {
-		if c == 39 {
-			if i == 0 {
-				continue
-			} else {
-				buf[i] = c
-				i++
-			}
-		} else if c >= 65 && c <= 90 {
-			if caseSensitive {
-				buf[i] = c
-			} else {
-				buf[i] = c + 32
-			}
-			i++
-		} else if c >= 97 && c <= 122 {
-			buf[i] = c
-			i++
-		} else if i > 0 {
-			m[string(buf[:i])]++
-			total++
-			i = 0
-		} else {
-			continue
+
+	for i < len(s) {
+		if alphaChar(s[i]) {
+			anyAlpha = true
+			minAlpha = i
+			break
 		}
+		i++
 	}
 
-	return m, total
+	for i < len(s) {
+		if alphaChar(s[i]) {
+			anyAlpha = true
+			maxAlpha = i
+		}
+		i++
+	}
+
+	if anyAlpha {
+		return s[minAlpha : maxAlpha+1]
+	} else {
+		return ""
+	}
+}
+
+// Returns true if the character is an alphabetic character
+func alphaChar(r uint8) bool {
+	return inRange(r, 65, 90) || inRange(r, 97, 122)
+}
+
+func inRange(n, lo, hi uint8) bool {
+	return n >= lo && n <= hi
 }
 
 // Converts a map into JSON with the option to output as human-readable with indents
