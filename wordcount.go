@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/odysseus/concordance"
 	"github.com/odysseus/stopwatch"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 var caseSensitive bool
@@ -17,6 +17,7 @@ var quiet bool
 var silent bool
 var outname string
 var outpath string
+var topwords int
 
 func init() {
 	flag.BoolVar(&caseSensitive, "case-sensitive", false, "Sets word count to case sensitive")
@@ -33,6 +34,9 @@ func init() {
 
 	flag.StringVar(&outpath, "path", "./", "Alternate path for output files")
 	flag.StringVar(&outpath, "p", "./", "Alternate path for output files")
+
+	flag.IntVar(&topwords, "top", 25, "Maximium number of top words to store")
+	flag.IntVar(&topwords, "t", 25, "Maximium number of top words to store")
 }
 
 func main() {
@@ -91,76 +95,14 @@ func RawFilename(path string) string {
 	return file
 }
 
-func WordCount(scanner *bufio.Scanner, caseSensitive bool) (map[string]int, int) {
-	scanner.Split(bufio.ScanWords)
-	m := make(map[string]int, 4096)
-	total := 0
-	for scanner.Scan() {
-		var word string
-		if caseSensitive {
-			word = scrubWord(scanner.Text())
-		} else {
-			word = scrubWord(strings.ToLower(scanner.Text()))
-		}
-
-		m[word]++
-		total++
-	}
-
-	// Unparseable words are stored as an empty string so we remove that
-	delete(m, "")
-	return m, total
-}
-
-// Takes a word token and strips non alphabetic characters from the
-// beginning and end of the word
-func scrubWord(s string) string {
-	minAlpha := 0
-	maxAlpha := 0
-	anyAlpha := false
-	i := 0
-
-	for i < len(s) {
-		if alphaChar(s[i]) {
-			anyAlpha = true
-			minAlpha = i
-			break
-		}
-		i++
-	}
-
-	for i < len(s) {
-		if alphaChar(s[i]) {
-			anyAlpha = true
-			maxAlpha = i
-		}
-		i++
-	}
-
-	if anyAlpha {
-		return s[minAlpha : maxAlpha+1]
-	} else {
-		return ""
-	}
-}
-
-// Returns true if the character is an alphabetic character
-func alphaChar(r uint8) bool {
-	return inRange(r, 65, 90) || inRange(r, 97, 122)
-}
-
-func inRange(n, lo, hi uint8) bool {
-	return n >= lo && n <= hi
-}
-
 // Converts a map into JSON with the option to output as human-readable with indents
-func WordMapToJSON(m map[string]int, humanReadable bool) ([]byte, error) {
+func ConcordanceToJSON(c *concordance.Concordance, humanReadable bool) ([]byte, error) {
 	var j []byte
 	var err error
 	if humanReadable {
-		j, err = json.MarshalIndent(m, "", "\t")
+		j, err = json.MarshalIndent(c, "", "\t")
 	} else {
-		j, err = json.Marshal(m)
+		j, err = json.Marshal(c)
 	}
 	if err != nil {
 		return nil, err
@@ -217,11 +159,10 @@ func processFile(path string, n, total int) (string, error) {
 	scanner := bufio.NewScanner(infile)
 
 	// Count the words
-	counts, totalWords := WordCount(scanner, caseSensitive)
-	uniqueWords := len(counts)
+	counts := concordance.NewConcordance(scanner, caseSensitive, topwords)
 
 	// Convert to JSON
-	j, err := WordMapToJSON(counts, true)
+	j, err := ConcordanceToJSON(counts, true)
 	if err != nil {
 		return failMsg(err, n, total), err
 	}
@@ -236,7 +177,7 @@ func processFile(path string, n, total int) (string, error) {
 	cwd, _ := os.Getwd()
 	infilename, _ := filepath.Rel(cwd, in)
 	msg := fmt.Sprintf("Completed %v of %v. Input: %s --> Output: %s\nWords: %v  Unique: %v\nTook: %v\n----------------\n",
-		n, total, infilename, out, totalWords, uniqueWords, sw)
+		n, total, infilename, out, counts.Total, counts.Unique, sw)
 
 	return msg, nil
 }
