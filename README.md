@@ -1,9 +1,9 @@
 # Word Count
 
-Reads a file and counts unique words and their number of occurrences. Outputs a JSON file of that information to the current directory. Currently set up for English characters, but alphabet-specific tuning can be easily accomplished by modifying the `if/else` statement in `WordCount`.
+A program for outputting word statistics for a text file. The standalone library for use within programs is called [concordance](https://github.com/odysseus/concordance)
 
 ## Installation
-First ensure that Go is installed, and your `$GOPATH` and `$GOBIN` are properly set. Go can be installed easily with homebrew using `brew install go` and help on setting the environment variables can be found: [here](https://golang.org/doc/code.html).
+First ensure that Go is installed, and your `$GOPATH` and `$GOBIN` are properly set. Go can be installed easily with homebrew using `brew install go` on mac or the package manager on Linux. Help on setting the environment variables can be found [here](https://golang.org/doc/code.html).
 
 Once that's done you simply need to run:
 
@@ -11,13 +11,19 @@ Once that's done you simply need to run:
 $ go get github.com/odysseus/wordcount
 ```
 
-From any command line
+From any command line.
 
 ## Options
 
+### Modifying Output Data
 - `--case-sensitive` / `-cs`: Setting either flag turns on case sensitive matching.
+- `--top` / `-t`: Specifies how many words to store in the 'most used' list. By default it stores all words. Storing every word can also be signaled by a `top` value <=0
+
+### Suppressing Terminal Output
 - `--quiet` / `-q`: Suppresses the verbose, file by file output.
 - `--silent` / `-s`: Suppresses all STDOUT output of the program.
+
+### Changing Output Path and/or Filename
 - `--name` / `-n`: Supply an alternate output file, this can be a different path, it does not append `.json` or anything else to the filename.
 - `--path` / `-p`: Supplies an alternate path to store the output files in, this *will* work with multiple input files.
 

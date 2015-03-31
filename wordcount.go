@@ -35,8 +35,8 @@ func init() {
 	flag.StringVar(&outpath, "path", "./", "Alternate path for output files")
 	flag.StringVar(&outpath, "p", "./", "Alternate path for output files")
 
-	flag.IntVar(&topwords, "top", 25, "Maximium number of top words to store")
-	flag.IntVar(&topwords, "t", 25, "Maximium number of top words to store")
+	flag.IntVar(&topwords, "top", 0, "Maximium number of top words to store")
+	flag.IntVar(&topwords, "t", 0, "Maximium number of top words to store")
 }
 
 func main() {
